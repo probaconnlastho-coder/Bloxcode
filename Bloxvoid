@@ -1,0 +1,1057 @@
+-- Happy Hub SS + C0ne Hub
+-- Execute this in your executor
+
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local Lighting = game:GetService("Lighting")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+if CoreGui:FindFirstChild("HappyHubSS") then
+    CoreGui.HappyHubSS:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "HappyHubSS"
+ScreenGui.Parent = CoreGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset = true
+
+-- Color Palette
+local Colors = {
+    Background = Color3.fromRGB(10, 10, 10),
+    MainContainer = Color3.fromRGB(20, 20, 20),
+    ButtonBg = Color3.fromRGB(0, 0, 0),
+    ButtonHover = Color3.fromRGB(40, 40, 40),
+    Text = Color3.fromRGB(255, 255, 255),
+    SubText = Color3.fromRGB(200, 200, 200),
+    Border = Color3.fromRGB(60, 60, 60),
+    AccentBlue = Color3.fromRGB(0, 150, 255),
+    AccentOrange = Color3.fromRGB(255, 140, 0),
+    StatusGreen = Color3.fromRGB(100, 255, 100)
+}
+
+-- Fonts
+local MainFont = Enum.Font.SourceSansSemibold
+local CodeFont = Enum.Font.Code
+local TitleFont = Enum.Font.Garamond
+
+-- Global State Variables
+local F3X_Ready = false
+local HD_Synced = false
+local F3X_Wrapper_Code = [[
+-- F3X Wrapper Code
+local f3x = game:GetObjects("rbxassetid://4734898158")[1]
+f3x.Parent = game.Players.LocalPlayer.Backpack
+print("F3X Loaded successfully!")
+]]
+
+-- ==========================================
+-- CORE UI FUNCTIONS
+-- ==========================================
+local function CreateButton(parent, text, size, layoutOrder, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = size or UDim2.new(1, 0, 0, 35)
+    btn.BackgroundColor3 = Colors.ButtonBg
+    btn.Text = text
+    btn.TextColor3 = Colors.Text
+    btn.TextSize = 14
+    btn.Font = MainFont
+    btn.BorderSizePixel = 1
+    btn.BorderColor3 = Colors.Border
+    btn.Parent = parent
+
+    if layoutOrder then
+        btn.LayoutOrder = layoutOrder
+    end
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 4)
+    corner.Parent = btn
+
+    btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Colors.ButtonHover end)
+    btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Colors.ButtonBg end)
+
+    if callback then
+        btn.MouseButton1Click:Connect(callback)
+    end
+
+    return btn
+end
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(1, -20, 1, -20)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.BackgroundColor3 = Colors.MainContainer
+MainFrame.BackgroundTransparency = 0.05
+MainFrame.BorderSizePixel = 1
+MainFrame.BorderColor3 = Colors.Border
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+-- Top Header
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 50)
+Header.BackgroundColor3 = Colors.Background
+Header.BorderSizePixel = 0
+Header.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0, 300, 1, 0)
+Title.Position = UDim2.new(0, 50, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "HappyHub SS"
+Title.TextColor3 = Colors.Text
+Title.TextSize = 28
+Title.Font = TitleFont
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local Logo = Instance.new("ImageLabel")
+Logo.Size = UDim2.new(0, 35, 0, 35)
+Logo.Position = UDim2.new(0, 10, 0, 7)
+Logo.BackgroundTransparency = 1
+Logo.Image = "rbxthumb://type=Asset&id=6023426923&w=150&h=150"
+Logo.Parent = Header
+
+local StatsLabel = Instance.new("TextLabel")
+StatsLabel.Size = UDim2.new(0, 150, 1, 0)
+StatsLabel.Position = UDim2.new(0.25, 0, 0, 0)
+StatsLabel.BackgroundTransparency = 1
+StatsLabel.Text = "Ping: 98 ms\nFPS: 60"
+StatsLabel.TextColor3 = Colors.SubText
+StatsLabel.TextSize = 14
+StatsLabel.Font = CodeFont
+StatsLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatsLabel.Parent = Header
+
+-- ==========================================
+-- STATUS DETECTOR BUTTONS (🟡 F3X / 🔵 HD)
+-- ==========================================
+local F3XStatusBtn = Instance.new("TextButton")
+F3XStatusBtn.Size = UDim2.new(0, 90, 0, 30)
+F3XStatusBtn.Position = UDim2.new(0.44, 0, 0, 10)
+F3XStatusBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+F3XStatusBtn.Text = "⚪ F3X"
+F3XStatusBtn.TextColor3 = Colors.Text
+F3XStatusBtn.TextSize = 12
+F3XStatusBtn.Font = MainFont
+F3XStatusBtn.BorderSizePixel = 0
+F3XStatusBtn.Parent = Header
+Instance.new("UICorner", F3XStatusBtn).CornerRadius = UDim.new(0, 4)
+
+local HDStatusBtn = Instance.new("TextButton")
+HDStatusBtn.Size = UDim2.new(0, 90, 0, 30)
+HDStatusBtn.Position = UDim2.new(0.53, 0, 0, 10)
+HDStatusBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+HDStatusBtn.Text = "⚪ HD/Admin"
+HDStatusBtn.TextColor3 = Colors.Text
+HDStatusBtn.TextSize = 12
+HDStatusBtn.Font = MainFont
+HDStatusBtn.BorderSizePixel = 0
+HDStatusBtn.Parent = Header
+Instance.new("UICorner", HDStatusBtn).CornerRadius = UDim.new(0, 4)
+
+-- ---------- Detectors ----------
+local function hasF3XTool()
+    local lp = Players.LocalPlayer
+    if not lp then return false end
+    local function scan(container)
+        if not container then return false end
+        for _, v in ipairs(container:GetChildren()) do
+            if v:IsA("Tool") then
+                local n = v.Name:lower()
+                if n:find("f3x") or n:find("fork3v") or n:find("building")
+                    or v:FindFirstChild("SyncAPI") then
+                    return true
+                end
+            end
+        end
+        return false
+    end
+    return scan(lp.Character) or scan(lp:FindFirstChildOfClass("Backpack")) or scan(lp)
+end
+
+local function hasHDRank()
+    local lp = Players.LocalPlayer
+    if not lp then return false end
+
+    if not workspace:FindFirstChild("HDAdminWorkspaceFolder") then return false end
+
+    local ok, isAdmin = pcall(function()
+        local client = game:GetService("ReplicatedStorage"):FindFirstChild("HDAdminHDClient")
+        if not client then return false end
+        local modules = client:FindFirstChild("Modules")
+        if not modules then return false end
+        for _, m in ipairs(modules:GetChildren()) do
+            if m:IsA("ModuleScript")
+                and (m.Name:lower():find("permission") or m.Name:lower():find("rank")) then
+                local mod = require(m)
+                if type(mod) == "table" and mod.GetRank then
+                    return mod.GetRank(lp) and true or false
+                end
+            end
+        end
+        return false
+    end)
+    if ok and isAdmin then return true end
+
+    local ls = lp:FindFirstChild("leaderstats")
+    if ls then
+        for _, v in ipairs(ls:GetChildren()) do
+            if v.Name:lower():find("rank") or v.Name:lower():find("admin") then
+                local val = tostring(v.Value):lower()
+                if val:find("admin") or val:find("owner") or val:find("mod")
+                    or val:find("hd") or val:find("staff") then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+local function refreshStatusButtons()
+    if hasF3XTool() then
+        F3XStatusBtn.BackgroundColor3 = Color3.fromRGB(255, 210, 60)
+        F3XStatusBtn.Text = "🟡 F3X / btools"
+        F3XStatusBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+    else
+        F3XStatusBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        F3XStatusBtn.Text = "⚪ F3X"
+        F3XStatusBtn.TextColor3 = Colors.Text
+    end
+
+    if hasHDRank() then
+        HDStatusBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+        HDStatusBtn.Text = "🔵 HD / Admin"
+        HDStatusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    else
+        HDStatusBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        HDStatusBtn.Text = "⚪ HD/Admin"
+        HDStatusBtn.TextColor3 = Colors.Text
+    end
+end
+
+F3XStatusBtn.MouseButton1Click:Connect(refreshStatusButtons)
+HDStatusBtn.MouseButton1Click:Connect(refreshStatusButtons)
+
+-- Header Buttons Frame
+local HeaderButtonsFrame = Instance.new("Frame")
+HeaderButtonsFrame.Size = UDim2.new(0.35, 0, 1, 0)
+HeaderButtonsFrame.Position = UDim2.new(0.62, 0, 0, 0)
+HeaderButtonsFrame.BackgroundTransparency = 1
+HeaderButtonsFrame.Parent = Header
+
+local HeaderButtonLayout = Instance.new("UIListLayout", HeaderButtonsFrame)
+HeaderButtonLayout.FillDirection = Enum.FillDirection.Horizontal
+HeaderButtonLayout.Padding = UDim.new(0, 4)
+HeaderButtonLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+
+local function CreateHeaderButton(text, order, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 45, 0, 30)
+    btn.BackgroundColor3 = Colors.ButtonBg
+    btn.Text = text
+    btn.TextColor3 = Colors.Text
+    btn.TextSize = 11
+    btn.Font = MainFont
+    btn.BorderSizePixel = 1
+    btn.BorderColor3 = Colors.Border
+    btn.LayoutOrder = order
+    btn.Parent = HeaderButtonsFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 3)
+    corner.Parent = btn
+
+    btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Colors.ButtonHover end)
+    btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Colors.ButtonBg end)
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+-- Fixed Functions
+local function RejoinGame()
+    TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
+end
+
+-- ==========================================
+-- DEX LOADER (BypassedDarkDexV3)
+-- ==========================================
+local function LoadDex()
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/Babyhamsta/RBLX_Scripts/main/Universal/BypassedDarkDexV3.lua", true))()
+    end)
+end
+
+local function SetRigType(rigType)
+    local char = Players.LocalPlayer.Character
+    if char and char:FindFirstChildOfClass("Humanoid") then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        humanoid.RigType = rigType
+        pcall(function()
+            Players.LocalPlayer:Chat(":" .. (rigType == Enum.HumanoidRigType.R15 and "r15" or "r6") .. " me")
+        end)
+        task.wait(0.5)
+        humanoid.Health = 0
+    end
+end
+
+local function ResetCharacter()
+    local char = Players.LocalPlayer.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then humanoid.Health = 0
+        else char:BreakJoints() end
+    end
+end
+
+local function ResetCharacterAlt()
+    local char = Players.LocalPlayer.Character
+    if char then char:BreakJoints() end
+end
+
+CreateHeaderButton("REJ", 1, RejoinGame)
+CreateHeaderButton("DEX", 2, LoadDex)
+CreateHeaderButton("R15", 3, function() SetRigType(Enum.HumanoidRigType.R15) end)
+CreateHeaderButton("R6 F", 4, function() SetRigType(Enum.HumanoidRigType.R6) end)
+CreateHeaderButton("R6", 5, function() SetRigType(Enum.HumanoidRigType.R6) end)
+CreateHeaderButton("RE", 6, ResetCharacter)
+CreateHeaderButton("RE2", 7, ResetCharacterAlt)
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 40, 0, 40)
+CloseButton.Position = UDim2.new(1, -45, 0, 5)
+CloseButton.BackgroundTransparency = 1
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 50, 50)
+CloseButton.TextSize = 22
+CloseButton.Font = MainFont
+CloseButton.Parent = Header
+CloseButton.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+-- Sidebars & Content Area
+local LeftSidebar = Instance.new("ScrollingFrame")
+LeftSidebar.Size = UDim2.new(0.18, 0, 1, -85)
+LeftSidebar.Position = UDim2.new(0, 0, 0, 50)
+LeftSidebar.BackgroundColor3 = Colors.Background
+LeftSidebar.BorderSizePixel = 0
+LeftSidebar.ScrollBarThickness = 3
+LeftSidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
+LeftSidebar.AutomaticCanvasSize = Enum.AutomaticSize.Y
+LeftSidebar.Parent = MainFrame
+local LeftLayout = Instance.new("UIListLayout", LeftSidebar)
+LeftLayout.Padding = UDim.new(0, 3)
+LeftLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local RightSidebar = Instance.new("ScrollingFrame")
+RightSidebar.Size = UDim2.new(0.15, 0, 1, -85)
+RightSidebar.Position = UDim2.new(0.85, 0, 0, 50)
+RightSidebar.BackgroundColor3 = Colors.Background
+RightSidebar.BorderSizePixel = 0
+RightSidebar.ScrollBarThickness = 3
+RightSidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
+RightSidebar.AutomaticCanvasSize = Enum.AutomaticSize.Y
+RightSidebar.Parent = MainFrame
+local RightLayout = Instance.new("UIListLayout", RightSidebar)
+RightLayout.Padding = UDim.new(0, 3)
+RightLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Size = UDim2.new(0.67, 0, 1, -85)
+ContentContainer.Position = UDim2.new(0.18, 0, 0, 50)
+ContentContainer.BackgroundTransparency = 1
+ContentContainer.Parent = MainFrame
+
+-- ==========================================
+-- ADVANCED SCRIPT EXECUTION ENGINE
+-- ==========================================
+local function ExecuteCommand(cmd)
+    if cmd and cmd ~= "" then
+        pcall(function() Players.LocalPlayer:Chat(cmd) end)
+    end
+end
+
+local function RunScript(scriptName)
+    local cmd = scriptName:lower()
+    if cmd:find("jumpscare") then ExecuteCommand(":jumpscare all")
+    elseif cmd:find("kill all") then ExecuteCommand(":kill all")
+    elseif cmd:find("explode all") then ExecuteCommand(":explode all")
+    elseif cmd:find("freeze all") then ExecuteCommand(":freeze all")
+    elseif cmd:find("unfreeze all") then ExecuteCommand(":unfreeze all")
+    elseif cmd:find("destroy") then ExecuteCommand(":destroy all")
+    elseif cmd:find("btools") then ExecuteCommand(":btools")
+    elseif cmd:find("f3x") then ExecuteCommand(":f3x")
+    elseif cmd:find("grab knife") then ExecuteCommand(":grab knife")
+    elseif cmd:find("fire axe") then ExecuteCommand(":fire axe")
+    elseif cmd:find("sword") then ExecuteCommand(":sword")
+    elseif cmd:find("nuke") then ExecuteCommand(":nuke")
+    elseif cmd:find("god") then ExecuteCommand(":god me")
+    elseif cmd:find("ungod") then ExecuteCommand(":ungod me")
+    elseif cmd:find("speed") then ExecuteCommand(":speed me 100")
+    elseif cmd:find("jump") then ExecuteCommand(":jump me 100")
+    elseif cmd:find("kick all") then ExecuteCommand(":kick all")
+    elseif cmd:find("lag") then ExecuteCommand(":lag all")
+    elseif cmd:find("hide") then ExecuteCommand(":hide me")
+    elseif cmd:find("show") then ExecuteCommand(":show me")
+    elseif cmd:find("freeze") then ExecuteCommand(":freeze me")
+    elseif cmd:find("unfreeze") then ExecuteCommand(":unfreeze me")
+    elseif cmd:find("remove backpack") then ExecuteCommand(":removebackpack me")
+    elseif cmd:find("delete playergui") then ExecuteCommand(":cleargui me")
+    else
+        print("Executing script: " .. scriptName)
+        ExecuteCommand(":" .. scriptName:gsub("%s+", ""))
+    end
+end
+
+local function FillGrid(parent, items, columns)
+    local grid = Instance.new("UIGridLayout")
+    local cellWidth = (1 / (columns or 5)) - 0.01
+    grid.CellSize = UDim2.new(cellWidth, 0, 0, 35)
+    grid.CellPadding = UDim2.new(0.01, 0, 0, 5)
+    grid.SortOrder = Enum.SortOrder.LayoutOrder
+    grid.Parent = parent
+    for i, name in ipairs(items) do
+        CreateButton(parent, name, nil, i, function() RunScript(name) end)
+    end
+end
+
+-- Tab System Logic
+local Tabs = {}
+local CurrentTab = nil
+local TabButtons = {}
+
+local function RegisterTab(name, iconId)
+    local btn = CreateButton(LeftSidebar, "  " .. name, UDim2.new(1, 0, 0, 32))
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.BackgroundColor3 = Colors.Background
+    table.insert(TabButtons, btn)
+
+    local icon = Instance.new("TextLabel")
+    icon.Size = UDim2.new(0, 25, 1, 0)
+    icon.Position = UDim2.new(1, -30, 0, 0)
+    icon.BackgroundTransparency = 1
+    icon.Text = iconId
+    icon.TextSize = 16
+    icon.Parent = btn
+
+    local tabFrame = Instance.new("ScrollingFrame")
+    tabFrame.Name = name .. "Tab"
+    tabFrame.Size = UDim2.new(1, -10, 1, -10)
+    tabFrame.Position = UDim2.new(0, 5, 0, 5)
+    tabFrame.BackgroundTransparency = 1
+    tabFrame.ScrollBarThickness = 4
+    tabFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    tabFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    tabFrame.Visible = false
+    tabFrame.Parent = ContentContainer
+
+    Tabs[name] = tabFrame
+
+    btn.MouseButton1Click:Connect(function()
+        if CurrentTab then CurrentTab.Visible = false end
+        for _, b in ipairs(TabButtons) do b.BackgroundColor3 = Colors.Background end
+        btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        tabFrame.Visible = true
+        CurrentTab = tabFrame
+    end)
+    return tabFrame
+end
+
+local function CreateRightAction(name, iconId, callback)
+    local btn = CreateButton(RightSidebar, "  " .. name, UDim2.new(1, 0, 0, 32))
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    local icon = Instance.new("TextLabel")
+    icon.Size = UDim2.new(0, 25, 1, 0)
+    icon.Position = UDim2.new(1, -30, 0, 0)
+    icon.BackgroundTransparency = 1
+    icon.Text = iconId
+    icon.TextSize = 16
+    icon.Parent = btn
+    if callback then btn.MouseButton1Click:Connect(callback) end
+    return btn
+end
+
+-- Build Right Sidebar
+local RightActions = {
+    {"Destroy", "💥", function() ScreenGui:Destroy() end},
+    {"Client Scripts", "⚔️", function() print("Client Scripts clicked") end},
+    {"Update Logs", "💬", function() print("Update Logs clicked") end},
+    {"Players", "👥", function() print("Players clicked") end},
+    {"Settings", "⚙️", function() print("Settings clicked") end},
+    {"Jumpscare", "👻", function() ExecuteCommand(":jumpscare all") end},
+    {"Credits", "📄", function() print("Credits clicked") end},
+    {"Faces", "🙂", function() print("Faces clicked") end},
+    {"Avatars", "👤", function() print("Avatars clicked") end},
+    {"Social Nets", "🌐", function() print("Social Nets clicked") end}
+}
+for _, act in ipairs(RightActions) do
+    CreateRightAction(act[1], act[2], act[3])
+end
+
+local function AutoAdminSync()
+    local commands = {":admin me", ":cmds", ":mod me"}
+    for _, cmd in ipairs(commands) do
+        pcall(function() Players.LocalPlayer:Chat(cmd) end)
+    end
+    task.wait(2)
+    HD_Synced = true
+end
+
+task.spawn(function()
+    task.wait(3)
+    AutoAdminSync()
+    while task.wait(2) do
+        pcall(refreshStatusButtons)
+    end
+end)
+
+-- ==========================================
+-- TABS & CONTENT
+-- ==========================================
+
+-- 1. Home Tab
+local HomeTab = RegisterTab("Home", "🏠")
+local HomeTop = Instance.new("Frame", HomeTab)
+HomeTop.Size = UDim2.new(1, 0, 0, 400)
+HomeTop.BackgroundTransparency = 1
+
+local Welcome = Instance.new("TextLabel", HomeTop)
+Welcome.Size = UDim2.new(1, 0, 0, 40)
+Welcome.BackgroundTransparency = 1
+Welcome.Text = "Welcome To HappyHub!"
+Welcome.TextColor3 = Color3.fromRGB(80, 80, 255)
+Welcome.TextSize = 28
+Welcome.Font = TitleFont
+
+local TimeLabel = Instance.new("TextLabel", HomeTop)
+TimeLabel.Size = UDim2.new(1, 0, 0, 30)
+TimeLabel.Position = UDim2.new(0, 0, 0, 40)
+TimeLabel.BackgroundTransparency = 1
+TimeLabel.Text = "Time: " .. os.date("%H:%M:%S") .. "  |  Server Time: 00:00:35.960"
+TimeLabel.TextColor3 = Color3.fromRGB(80, 80, 255)
+TimeLabel.TextSize = 20
+TimeLabel.Font = MainFont
+task.spawn(function()
+    while task.wait(1) do
+        TimeLabel.Text = "Time: " .. os.date("%H:%M:%S") .. "  |  Server Time: " .. string.format("%.3f", tick() % 1000)
+    end
+end)
+
+local AvatarFrame = Instance.new("Frame", HomeTop)
+AvatarFrame.Size = UDim2.new(0.2, 0, 0, 150)
+AvatarFrame.Position = UDim2.new(0, 0, 0, 80)
+AvatarFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+AvatarFrame.BackgroundTransparency = 0.5
+AvatarFrame.BorderSizePixel = 1
+AvatarFrame.BorderColor3 = Colors.Border
+
+local AvatarImage = Instance.new("ImageLabel", AvatarFrame)
+AvatarImage.Size = UDim2.new(1, -10, 1, -10)
+AvatarImage.Position = UDim2.new(0, 5, 0, 5)
+AvatarImage.BackgroundTransparency = 1
+AvatarImage.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. Players.LocalPlayer.UserId .. "&width=150&height=150&format=png"
+
+local PartyHat = Instance.new("ImageLabel", AvatarImage)
+PartyHat.Size = UDim2.new(0.6, 0, 0.6, 0)
+PartyHat.Position = UDim2.new(0.2, 0, -0.3, 0)
+PartyHat.BackgroundTransparency = 1
+PartyHat.Image = "rbxassetid://124862108"
+
+local UserInfoFrame = Instance.new("Frame", HomeTop)
+UserInfoFrame.Size = UDim2.new(0.45, 0, 0, 150)
+UserInfoFrame.Position = UDim2.new(0.21, 0, 0, 80)
+UserInfoFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+UserInfoFrame.BackgroundTransparency = 0.5
+UserInfoFrame.BorderSizePixel = 1
+UserInfoFrame.BorderColor3 = Colors.Border
+
+local UserInfo = Instance.new("TextLabel", UserInfoFrame)
+UserInfo.Size = UDim2.new(1, -10, 1, -10)
+UserInfo.Position = UDim2.new(0, 5, 0, 5)
+UserInfo.BackgroundTransparency = 1
+UserInfo.Text = "Loading..."
+UserInfo.TextColor3 = Colors.Text
+UserInfo.TextSize = 14
+UserInfo.Font = CodeFont
+UserInfo.TextXAlignment = Enum.TextXAlignment.Left
+UserInfo.TextYAlignment = Enum.TextYAlignment.Top
+UserInfo.TextWrapped = true
+
+local HideInfoBtn = CreateButton(HomeTop, "Hide Info", UDim2.new(0.15, 0, 0, 35))
+HideInfoBtn.Position = UDim2.new(0.67, 0, 0, 195)
+HideInfoBtn.MouseButton1Click:Connect(function()
+    UserInfoFrame.Visible = not UserInfoFrame.Visible
+end)
+
+local BirthdayFrame = Instance.new("Frame", HomeTop)
+BirthdayFrame.Size = UDim2.new(0.33, 0, 0, 150)
+BirthdayFrame.Position = UDim2.new(0.67, 0, 0, 80)
+BirthdayFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+BirthdayFrame.BackgroundTransparency = 0.5
+BirthdayFrame.BorderSizePixel = 1
+BirthdayFrame.BorderColor3 = Colors.Border
+
+local BirthdayText = Instance.new("TextLabel", BirthdayFrame)
+BirthdayText.Size = UDim2.new(1, 0, 1, 0)
+BirthdayText.BackgroundTransparency = 1
+BirthdayText.Text = "HAPPY\nBIRTHDAY!"
+BirthdayText.TextColor3 = Color3.fromRGB(255, 100, 200)
+BirthdayText.TextSize = 30
+BirthdayText.Font = TitleFont
+BirthdayText.TextWrapped = true
+
+local RobloxLogo = Instance.new("ImageLabel", BirthdayFrame)
+RobloxLogo.Size = UDim2.new(0.4, 0, 0.4, 0)
+RobloxLogo.Position = UDim2.new(0.6, 0, 0.6, 0)
+RobloxLogo.BackgroundTransparency = 1
+RobloxLogo.Image = "rbxassetid://241749196"
+RobloxLogo.ImageTransparency = 0.2
+
+local ConfettiEmojis = {"🎉", "🎊", "✨", "🎈", "🎂", "🥳", "🎁", "🍰"}
+for i = 1, 20 do
+    local confetti = Instance.new("TextLabel", HomeTop)
+    confetti.Size = UDim2.new(0, 30, 0, 30)
+    confetti.BackgroundTransparency = 1
+    confetti.Text = ConfettiEmojis[math.random(1, #ConfettiEmojis)]
+    confetti.TextSize = math.random(20, 35)
+    confetti.Position = UDim2.new(math.random(0, 90)/100, 0, math.random(0, 80)/100, 0)
+    confetti.ZIndex = 2
+end
+
+local BottomStatus = Instance.new("Frame", HomeTop)
+BottomStatus.Size = UDim2.new(1, 0, 0, 40)
+BottomStatus.Position = UDim2.new(0, 0, 0, 240)
+BottomStatus.BackgroundTransparency = 1
+
+local RandomCodes1 = Instance.new("TextLabel", BottomStatus)
+RandomCodes1.Size = UDim2.new(0.15, 0, 1, 0)
+RandomCodes1.BackgroundTransparency = 1
+RandomCodes1.Text = "4 8 7 2 4"
+RandomCodes1.TextColor3 = Colors.Text
+RandomCodes1.TextSize = 18
+RandomCodes1.Font = MainFont
+
+local CountryLabel = Instance.new("TextLabel", BottomStatus)
+CountryLabel.Size = UDim2.new(0.2, 0, 1, 0)
+CountryLabel.Position = UDim2.new(0.15, 0, 0, 0)
+CountryLabel.BackgroundTransparency = 1
+CountryLabel.Text = "Country: PH"
+CountryLabel.TextColor3 = Colors.Text
+CountryLabel.TextSize = 18
+CountryLabel.Font = MainFont
+
+local StatusLabel = Instance.new("TextLabel", BottomStatus)
+StatusLabel.Size = UDim2.new(0.3, 0, 1, 0)
+StatusLabel.Position = UDim2.new(0.35, 0, 0, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Status: Injected!"
+StatusLabel.TextColor3 = Colors.StatusGreen
+StatusLabel.TextSize = 18
+StatusLabel.Font = MainFont
+
+local RandomCodes2 = Instance.new("TextLabel", BottomStatus)
+RandomCodes2.Size = UDim2.new(0.35, 0, 1, 0)
+RandomCodes2.Position = UDim2.new(0.65, 0, 0, 0)
+RandomCodes2.BackgroundTransparency = 1
+RandomCodes2.Text = "4 3 9 3 6 2 6 1 8 6"
+RandomCodes2.TextColor3 = Colors.Text
+RandomCodes2.TextSize = 18
+RandomCodes2.Font = MainFont
+
+local BirthdayMsg = Instance.new("TextLabel", HomeTop)
+BirthdayMsg.Size = UDim2.new(1, 0, 0, 30)
+BirthdayMsg.Position = UDim2.new(0, 0, 0, 280)
+BirthdayMsg.BackgroundTransparency = 1
+BirthdayMsg.Text = "Happy Birthday, Happy Hub!!! 🥳🎉🎉"
+BirthdayMsg.TextColor3 = Color3.fromRGB(100, 150, 255)
+BirthdayMsg.TextSize = 20
+BirthdayMsg.Font = MainFont
+
+local Telegram = Instance.new("TextLabel", HomeTop)
+Telegram.Size = UDim2.new(1, 0, 0, 30)
+Telegram.Position = UDim2.new(0, 0, 0, 310)
+Telegram.BackgroundTransparency = 1
+Telegram.Text = "https://t.me/HappyHub111"
+Telegram.TextColor3 = Color3.fromRGB(100, 200, 255)
+Telegram.TextSize = 16
+Telegram.Font = MainFont
+
+local HomeGrid = Instance.new("Frame", HomeTab)
+HomeGrid.Size = UDim2.new(1, 0, 1, -400)
+HomeGrid.Position = UDim2.new(0, 0, 0, 420)
+HomeGrid.BackgroundTransparency = 1
+FillGrid(HomeGrid, {
+    "Jumpscare\n(SKID ALERT)", "666", "disco :D", "virus", "Disable Chat\nFiltr",
+    "BALLS Rain", "Teams", "+100\njumppower", "Disco Fog", "green Fog",
+    "Random\nMesh", "Rain Tacos", "UnFreeze All", "F3X", "+100\nwalkspeed",
+    "Random\nSpeed", "happy appy\navatar", "destroy", "Freeze All", "destroy 2",
+    "TROLLS\nDESTROY", "unanchor", "Kill All", "Loop Chat\nHax", "Bomb Rain",
+    "Disco V2", "Clear Terrain", "Clear\nWorkSpace", "Anti-Robloxia", "Explode All",
+    "Anti-Ban", "Anti-Leave", "Shedl Destroy", "Kick All", "Flood"
+}, 5)
+
+local function updateUserInfo()
+    local lp = Players.LocalPlayer
+    if not lp or not lp.Character then return end
+    local char = lp.Character
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    local hp = humanoid and math.floor(humanoid.Health) or 0
+
+    local username = lp.DisplayName or lp.Name
+    local accountAge = lp.AccountAge or 0
+    local userId = lp.UserId
+    local localId = "en-us"
+    local name = lp.Name
+    local placeId = game.PlaceId
+
+    UserInfo.Text = string.format(
+        "Your Username : %s\nYour Account Has %d Days\nYour ID : %d\nLocal ID : %s\nYour Name : %s\nYour HP : %d\nPlace ID: %d (Normal Place)",
+        username, accountAge, userId, localId, name, hp, placeId
+    )
+end
+
+task.spawn(function()
+    while task.wait(1) do pcall(updateUserInfo) end
+end)
+
+-- 2. Sky Tab
+local SkyTab = RegisterTab("Sky", "🌌")
+local SkyTop = Instance.new("Frame", SkyTab)
+SkyTop.Size = UDim2.new(1, 0, 0, 45)
+SkyTop.BackgroundTransparency = 1
+local SkyInput = Instance.new("TextBox", SkyTop)
+SkyInput.Size = UDim2.new(0.65, -5, 0, 35)
+SkyInput.BackgroundColor3 = Colors.ButtonBg
+SkyInput.TextColor3 = Colors.Text
+SkyInput.PlaceholderText = "Here Skybox ID..."
+SkyInput.TextSize = 18
+SkyInput.Font = CodeFont
+local SkyBtn = CreateButton(SkyTop, "Make Skybox", UDim2.new(0.35, 0, 0, 35))
+SkyBtn.Position = UDim2.new(0.65, 5, 0, 0)
+SkyBtn.MouseButton1Click:Connect(function()
+    local id = tonumber(SkyInput.Text)
+    if id then
+        local sky = Instance.new("Sky")
+        sky.SkyboxBk = "rbxassetid://" .. id
+        sky.SkyboxDn = "rbxassetid://" .. id
+        sky.SkyboxFt = "rbxassetid://" .. id
+        sky.SkyboxLf = "rbxassetid://" .. id
+        sky.SkyboxRt = "rbxassetid://" .. id
+        sky.SkyboxUp = "rbxassetid://" .. id
+        sky.Parent = Lighting
+        print("Skybox set to ID: " .. id)
+    end
+end)
+local SkyGrid = Instance.new("Frame", SkyTab)
+SkyGrid.Size = UDim2.new(1, 0, 1, -50)
+SkyGrid.Position = UDim2.new(0, 0, 0, 50)
+SkyGrid.BackgroundTransparency = 1
+local skyboxes = {
+    ["Scary sky"] = 1226526, ["coolkid sky"] = 1226526, ["tubers sky"] = 1226526,
+    ["burn rainbow\nflag man sky"] = 1226526, ["Funny German\nFlag sky"] = 1226526,
+    ["1X1X1X1 SKY"] = 1226526, ["PLOONKIDD\nsky"] = 1226526, ["Shedletsky\nSky"] = 1226526,
+    ["John Cena\nSky"] = 1226526, ["Team\nSkrubl0rdz Sky"] = 1226526, ["Donald Duck\nsky"] = 1226526,
+    ["TrollFace Sky"] = 1226526, ["Multi Sky"] = 1226526, ["SPOOKY SKY"] = 1226526,
+    ["C00lk8danez\nSKY"] = 1226526, ["Lua Sky"] = 1226526, ["Astolfo Sky"] = 1226526,
+    ["Romania Sky"] = 1226526, ["Russia Sky"] = 1226526, ["Canada Sky"] = 1226526
+}
+for name, id in pairs(skyboxes) do
+    local btn = CreateButton(SkyGrid, name, nil, 0, function()
+        local sky = Instance.new("Sky")
+        sky.SkyboxBk = "rbxassetid://" .. id
+        sky.SkyboxDn = "rbxassetid://" .. id
+        sky.SkyboxFt = "rbxassetid://" .. id
+        sky.SkyboxLf = "rbxassetid://" .. id
+        sky.SkyboxRt = "rbxassetid://" .. id
+        sky.SkyboxUp = "rbxassetid://" .. id
+        sky.Parent = Lighting
+    end)
+end
+local skyGridLayout = Instance.new("UIGridLayout", SkyGrid)
+skyGridLayout.CellSize = UDim2.new(0.19, 0, 0, 35)
+skyGridLayout.CellPadding = UDim2.new(0.01, 0, 0, 5)
+
+-- 3. Decals Tab
+local DecalsTab = RegisterTab("Decals", "🗺️")
+local DecalTop = Instance.new("Frame", DecalsTab)
+DecalTop.Size = UDim2.new(1, 0, 0, 45)
+DecalTop.BackgroundTransparency = 1
+local DecalInput = Instance.new("TextBox", DecalTop)
+DecalInput.Size = UDim2.new(0.65, -5, 0, 35)
+DecalInput.BackgroundColor3 = Colors.ButtonBg
+DecalInput.TextColor3 = Colors.Text
+DecalInput.PlaceholderText = "Here Decal ID..."
+DecalInput.TextSize = 18
+DecalInput.Font = CodeFont
+local ApplyDecalBtn = CreateButton(DecalTop, "Apply Decal", UDim2.new(0.35, 0, 0, 35))
+ApplyDecalBtn.Position = UDim2.new(0.65, 5, 0, 0)
+ApplyDecalBtn.MouseButton1Click:Connect(function()
+    local id = tonumber(DecalInput.Text)
+    if id then
+        local char = Players.LocalPlayer.Character
+        if char then
+            local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+            if torso then
+                local decal = Instance.new("Decal")
+                decal.Texture = "rbxassetid://" .. id
+                decal.Face = Enum.NormalId.Front
+                decal.Parent = torso
+                print("Applied decal ID: " .. id)
+            end
+        end
+    end
+end)
+
+local DecalGrid = Instance.new("Frame", DecalsTab)
+DecalGrid.Size = UDim2.new(1, 0, 1, -50)
+DecalGrid.Position = UDim2.new(0, 0, 0, 50)
+DecalGrid.BackgroundTransparency = 1
+
+local decalIds = {
+    "138177692150198", "125940566001256", "158118263", "109172666525942", "96464893839346",
+    "108026156503677", "103019090820445", "138193061357271", "127419442544941", "110240864101518",
+    "12851404448", "358313209", "382332426", "7108680822", "172423468", "12025340162", "157755295",
+    "132408240384029", "160456772"
+}
+
+local decalGridLayout = Instance.new("UIGridLayout", DecalGrid)
+decalGridLayout.CellSize = UDim2.new(0.19, 0, 0, 35)
+decalGridLayout.CellPadding = UDim2.new(0.01, 0, 0, 5)
+
+for _, id in ipairs(decalIds) do
+    local buttonText = "Decal " .. id
+    pcall(function()
+        local info = MarketplaceService:GetProductInfo(tonumber(id), Enum.InfoType.Asset)
+        if info and info.Name then buttonText = info.Name end
+    end)
+
+    CreateButton(DecalGrid, buttonText, nil, 0, function()
+        local char = Players.LocalPlayer.Character
+        if char then
+            local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+            if torso then
+                local decal = Instance.new("Decal")
+                decal.Texture = "rbxassetid://" .. id
+                decal.Face = Enum.NormalId.Front
+                decal.Parent = torso
+                print("Applied decal: " .. buttonText .. " (" .. id .. ")")
+            end
+        end
+    end)
+end
+
+-- 4. Songs Tab
+local SongsTab = RegisterTab("Songs", "🎵")
+local SongsTopGrid = Instance.new("Frame", SongsTab)
+SongsTopGrid.Size = UDim2.new(1, 0, 0, 80)
+SongsTopGrid.BackgroundTransparency = 1
+FillGrid(SongsTopGrid, {
+    "Stop Music", "Distort", "Reverb",
+    "Distort X2", "Compressor", "Chorus", "Equalizer", "Echo",
+    "Flange", "Pitch Shift", "Tremolo", "Efects"
+}, 4)
+local SongsDivider = Instance.new("TextLabel", SongsTab)
+SongsDivider.Size = UDim2.new(1, 0, 0, 30)
+SongsDivider.Position = UDim2.new(0, 0, 0, 80)
+SongsDivider.BackgroundTransparency = 1
+SongsDivider.Text = "▼ Sounds And Music ▼"
+SongsDivider.TextColor3 = Colors.Text
+SongsDivider.TextSize = 18
+SongsDivider.Font = MainFont
+local SongsGrid = Instance.new("Frame", SongsTab)
+SongsGrid.Size = UDim2.new(1, 0, 1, -110)
+SongsGrid.Position = UDim2.new(0, 0, 0, 110)
+SongsGrid.BackgroundTransparency = 1
+FillGrid(SongsGrid, {
+    "JohnDoe\nDeath Sound", "Life in\nParadise", "K00PKID\nCoffe Shop", "Wont Stop Us", "Gansta\nParadise",
+    "Fart", "Jumpstyle Song\nX2 (Taconiel)", "Eskibidi toile", "Jumpstyle\nAmogus (delete)", "Jumpstyle\nshit",
+    "Trololo Remix", "Spooky Scary", "Obunga", "Chaos", "Project"
+}, 5)
+
+-- 5. Maps Tab
+local MapsTab = RegisterTab("Maps", "🌍")
+FillGrid(MapsTab, {
+    "Backrooms", "CS:GO\nOFFICE", "Space\nElevator", "Ohio", "Baldi's basics",
+    "crossroads", "Fnaf", "KFC", "Quantum\nScience Lab", "House",
+    "Baseplate", "TUBERZZ\nREALM", "backrooms\nhorror map", "Mr Pixel boss\nfight Map", "The Mountain",
+    "goofy ahh\ndance💀", "Downtown\nConstruction", "The Bacon\nTrials", "Orlando\n2016 map", "BrookHaven\nMap",
+    "k00pkidd\ncoffe map", "K00pkidd\nrealm", "floppa map", "Lumber\nTycoon 2", "Life In\nParadise",
+    "BreakingBad\nmap", "Fnaf v2", "Natural\nDisasters map", "Arab\nTomfolery", "N%ZI MAP",
+    "Mosque", "Mosque 2", "Cart Ride", "Scary House", "WalMart Map"
+}, 5)
+
+-- 6. Hint & Message Tab
+local HintTab = RegisterTab("Hint & Message", "💬")
+local HintTop = Instance.new("Frame", HintTab)
+HintTop.Size = UDim2.new(1, 0, 0, 100)
+HintTop.BackgroundTransparency = 1
+local HintInput = Instance.new("TextBox", HintTop)
+HintInput.Size = UDim2.new(0.3, 0, 0, 35)
+HintInput.Position = UDim2.new(0, 0, 0, 0)
+HintInput.BackgroundColor3 = Colors.ButtonBg
+HintInput.TextColor3 = Colors.Text
+HintInput.PlaceholderText = "Here Text..."
+HintInput.TextSize = 16
+local MsgInput = Instance.new("TextBox", HintTop)
+MsgInput.Size = UDim2.new(0.3, 0, 0, 35)
+MsgInput.Position = UDim2.new(0.31, 0, 0, 0)
+MsgInput.BackgroundColor3 = Colors.ButtonBg
+MsgInput.TextColor3 = Colors.Text
+MsgInput.PlaceholderText = "Here Text..."
+MsgInput.TextSize = 16
+local HintBtn = CreateButton(HintTop, "Set Hint", UDim2.new(0.3, 0, 0, 35))
+HintBtn.Position = UDim2.new(0, 0, 0, 40)
+HintBtn.TextSize = 12
+HintBtn.MouseButton1Click:Connect(function()
+    local text = HintInput.Text
+    if text ~= "" then game.StarterGui:SetCore("SendNotification", {Title = "Hint", Text = text, Duration = 5}) end
+end)
+local MsgBtn = CreateButton(HintTop, "Set Message", UDim2.new(0.3, 0, 0, 35))
+MsgBtn.Position = UDim2.new(0.31, 0, 0, 40)
+MsgBtn.TextSize = 12
+MsgBtn.MouseButton1Click:Connect(function()
+    local text = MsgInput.Text
+    if text ~= "" then game.StarterGui:SetCore("SendNotification", {Title = "Message", Text = text, Duration = 5}) end
+end)
+local ClearHintBtn = CreateButton(HintTop, "Clear\nHint", UDim2.new(0.15, 0, 0, 35))
+ClearHintBtn.Position = UDim2.new(0.62, 0, 0, 0)
+ClearHintBtn.MouseButton1Click:Connect(function()
+    HintInput.Text = ""
+    game.StarterGui:SetCore("SendNotification", {Title = "Hint", Text = "", Duration = 0.1})
+end)
+local ClearMsgBtn = CreateButton(HintTop, "Clear\nMessage", UDim2.new(0.15, 0, 0, 35))
+ClearMsgBtn.Position = UDim2.new(0.62, 0, 0, 40)
+ClearMsgBtn.MouseButton1Click:Connect(function()
+    MsgInput.Text = ""
+    game.StarterGui:SetCore("SendNotification", {Title = "Message", Text = "", Duration = 0.1})
+end)
+
+local HintGrid = Instance.new("Frame", HintTab)
+HintGrid.Size = UDim2.new(1, 0, 1, -110)
+HintGrid.Position = UDim2.new(0, 0, 0, 110)
+HintGrid.BackgroundTransparency = 1
+FillGrid(HintGrid, {
+    "hint 1", "Message 1", "Message 2", "Message 3", "Message 4",
+    "Message 5", "hint 6", "hint 7", "hint 8", "hint 9",
+    "hint 10", "Message 6", "Message 7", "Message 8", "Message 9",
+    "Message 10 (C00LKID\nREWANKED)", "hint 11 (C00LKID\nREWANKED)", "hint 12", "hint 13", "hint 14"
+}, 5)
+
+-- 7. Hubs Tab
+local HubsTab = RegisterTab("Hubs", "🌟")
+FillGrid(HubsTab, {
+    "Its Not Skeleton GUI\npass-ItsNotSkeletonV14", "144ANZ gui", "PS V2.1", "Aureus", "Ro-Xploits V7",
+    "DreamBull\nGUI", "K0opGui V9", "ZAZOL Hub", "G0oby AVISE", "Scary Gui",
+    "L3@K GUI v5", "Fumo\nExecutor", "f00plkidd gui", "Elmarz gui V3", "Hack gui",
+    "Anonymous\nGUI", "k00pgui v4\npass-Zelow", "UTG REBORN", "FE Fly Gui V3", "PiLiN Gui",
+    "PiLiN Gui\n(Pocket)", "Skibidi Gui", "Sans_Gboard\nHub", "Polaria", "Ro-Xploits\nV6.0",
+    "U1GUI V3", "l0OrGUI V7", "Y0opGUI V2", "c00lkidd V2", "Trash Hub",
+    "Hax GUI V2", "Stratosphere", "Inf Yield FF", "SSP", "Sheldoni"
+}, 5)
+
+-- 8. Particles Tab
+local ParticlesTab = RegisterTab("Particles", "✨")
+FillGrid(ParticlesTab, {
+    "Button", "Clown\nKindnapp", "Bots GUI", "big patrick", "Large Nuke",
+    "big freddy", "Nuke", "Pee", "Tornado", "Excut",
+    "Tornado V2", "Nuke V2", "Spawn N0obs", "Tesla Coil", "Sapper",
+    "Obunga\nJumpscare", "Meteors", "Blindness", "Earthquake", "Lava",
+    "Thunder\nStorm", "Tsunami", "Breakproof\nGlass", "Starlight Chat", "Pee V2",
+    "Mech", "Very ****\n(Clientide)", "HOLA GOOSE", "Universal\nReset", "Mario Troll",
+    "WIPR", "GOon (RRO)"
+}, 5)
+
+-- 9. Other Scripts Tab
+local OtherScriptsTab = RegisterTab("Other scripts", "📜")
+local OtherGrid = Instance.new("Frame", OtherScriptsTab)
+OtherGrid.Size = UDim2.new(1, 0, 1, 0)
+OtherGrid.BackgroundTransparency = 1
+FillGrid(OtherGrid, {
+    "Grab Knife", "CSGO Guns", "Grab Gun", "mystic Tools", "outthemoon\ntools",
+    "Slap Battles\nTools", "Guns GUI", "Fire Axe", "F3X", "Memes Tools",
+    "Su*c*de gun", "gravity\nhammer", "SquidWard\nBomb", "cool tools", "undertale\ntools",
+    "ToolGun", "ToolGun V2", "Grab Knife V1", "Alif Guns", "W0rsh1p",
+    "Grab Knife V4", "C4 Bomb", "Pootis", "Robux Tools", "Guns (Visual)",
+    "3D Draw", "g0Re guns", "Funny\nToolPack", "LC ToolPack", "6 Swords",
+    "Crucfix For\nDoors", "God Lazer", "Volcanic's\nGuns", "AirStrike\nTools", "Molotov"
+}, 5)
+
+-- 10. Items Tab
+local ItemsTab = RegisterTab("Items", "🔫")
+FillGrid(ItemsTab, {
+    "John Doe", "GRAB KNIFE\nV4", "Studio\nDummy", "Soccer God", "A-60",
+    "Zalgo", "KillBot V2", "Brick\nHamman", "R15 Death", "R6 Death",
+    "Aeshma", "Doge Army", "saul goodman\njumpscare", "toxicity", "Kill Machine",
+    "Polygoner", "The Deafant", "Goner", "Horror", "Fraud",
+    "Grab Knife", "Dominus\nVenary", "Crypt", "The Third\nDimension", "Lost Soul",
+    "SCP-096", "Grab gun", "Kill Machine\nV2", "Killbot V3", "Xester V2",
+    "Mr Bye\nBye", "Dark Dex", "Rainbow\nStand", "NightMare", "Fallen Angel"
+}, 5)
+
+-- 11. NPC Tab
+local NPCTab = RegisterTab("NPC", "🏃")
+FillGrid(NPCTab, {
+    "A-10", "Tank Attack", "Helicopter\nAttack", "Police Attack", "Military\nAttack",
+    "Xester BOSS", "Sans BOSS", "Thanos BOSS", "Angel dominus\nBOSS", "Artic Commando\nBOSS",
+    "Dummy Titan", "c00LB0t\nnextbot", "J1Ngl3\nFemale", "J1Ngl3 Male", "Mangle",
+    "Peep", "Nextbot\nExplode", "Devourer\nBirdisty", "Jevil Kill Bot", "Juggernaut",
+    "Super Spectrum\nZombie", "Combine\nArmy", "Zombie", "Roblox", "Chiken\nJockey",
+    "Obama", "Tree?", "Conk Boss", "Su Tart Boss", "REAL HACKER",
+    "The raider\nboss", "Furry\nBoss", "Chara Boss", "Jevil Boss", "Mr.P Boss"
+}, 5)
+
+-- 12. Entity Tab
+local EntityTab = RegisterTab("Entity", "🎮")
+FillGrid(EntityTab, {
+    "Its Not Skeleton GUI\npass-ItsNotSkeletonV14", "144ANZ gui", "PS V2.1", "Aureus", "Ro-Xploits V7",
+    "DreamBull\nGUI", "K0opGui V9", "ZAZOL Hub", "G0oby AVISE", "Scary Gui",
+    "L3@K GUI v5", "Fumo\nExecutor", "f00plkidd gui", "Elmarz gui V3", "Hack gui",
+    "Anonymous\nGUI", "k00pgui v4\npass-Zelow", "UTG REBORN", "FE Fly Gui V3", "PiLiN Gui",
+    "PiLiN Gui\n(Pocket)", "Skibidi Gui", "Sans_Gboard\nHub", "Polaria", "Ro-Xploits\nV6.0",
+    "U1GUI V3", "l0OrGUI V7", "Y0opGUI V2", "c00lkidd V2", "Trash Hub",
+    "Hax GUI V2", "Stratosphere", "Inf Yield FF", "SSP", "Sheldoni"
+}, 5)
+
+-- 13. Cars Tab
+local CarsTab = RegisterTab("Cars", "🚗")
+FillGrid(CarsTab, {
+    "Button", "Clown\nKindnapp", "Bots GUI", "big patrick", "Large Nuke",
+    "big freddy", "Nuke", "Pee", "Tornado", "Excut",
+    "Tornado V2", "Nuke V2", "Spawn N0obs", "Tesla Coil", "Sapper",
+    "Obunga\nJumpscare", "Meteors", "Blindness", "Earthquake", "Lava",
+    "Thunder\nStorm", "Tsunami", "Breakproof\nGlass", "Starlight Chat", "Pee V2",
+    "Mech", "Very ****\n(Clientide)", "HOLA GOOSE", "Universal\nReset", "Mario Troll",
+    "WIPR", "GOon (RRO)"
+}, 5)
+
+-- ==========================================
+-- 14. EXECUTOR TAB (with remote/backdoor support)
+-- ==========================================
+local ExecutorTab = RegisterTab("Executor", "🛠️")
+
+-- ==========================================
+-- REMOTE EXECUTION HELPERS
+-- ==========================================
+-- Sends code payload through a protected/found backdoor remote
+local function runRemote(remote, payload)
+    if typeof(remote) ~= "Instance" then
+        warn("[Executor] runRemote: invalid remote instance")
+        return false
+    end
+    if type(payload) ~= "string" then
+        warn("[Executor] runRemote: payload must be a string")
+        return false
+    end
+
+    local ok, err = pcall(function()
+        if remote:IsA("RemoteEvent") then
+            remote:
